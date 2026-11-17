@@ -319,8 +319,7 @@
     lineChart(svg, { x: 34, y: 10, w: W - 48, h: H - 40 }, { series: [{ name: 'ESI', color: s1, values: c.v.esi }], domain: [0, 1], ticks: [0, .25, .5, .75, 1],
       band: [c.v.esi_mc_p05, c.v.esi_mc_p95, s1], ref: { name: 'Sample median', values: medianSeries('esi') }, fmtV: function (v) { return fmt(v, 3); }, tipTitle: c.name });
     legend(f1, [{ type: 'line', color: s1, label: c.name }, { type: 'band', color: s1, label: 'Range over random weights' }, { type: 'line', color: css('--viz-muted'), label: 'Sample median' }]);
-    var medE = medianSeries('esi');
-    setCsv(f1, [['country', 'year', 'esi', 'sample_median_esi']].concat(YEARS.map(function (yr, j) { return [c.name, yr, num(c.v.esi[j]), num(medE[j])]; })));
+    setCsv(f1, [['country', 'iso3', 'year', 'esi']].concat(YEARS.map(function (yr, j) { return [c.name, c.iso3, yr, num(c.v.esi[j])]; })));
 
     // dimensions
     var f2 = $('[data-fig="dims"]'), cols = ['--s1', '--s2', '--s3', '--s4'].map(css);
@@ -382,7 +381,7 @@
     lineChart(svg, { x: 46, y: 10, w: W - 60 - lw, h: H - 40 }, { series: ser, domain: [lo, hi], ticks: tk, endLabels: true, ref: { name: 'Sample median', values: med },
       fmtV: m.raw ? rawFmt : function (v) { return fmt(v, 3); }, tipTitle: m.label });
     legend(fig, ser.map(function (s) { return { type: 'line', color: s.color, label: s.name }; }).concat([{ type: 'line', color: css('--viz-muted'), label: 'Sample median' }]));
-    setCsv(fig, m.raw ? null : [['year'].concat(ser.map(function (s) { return s.name; }), ['sample_median'])].concat(YEARS.map(function (yr, j) { return [yr].concat(ser.map(function (s) { return num(s.values[j]); }), [num(med[j])]); })));
+    setCsv(fig, m.raw ? null : [['country', 'iso3', 'year', m.key]].concat([].concat.apply([], state.cmp.map(function (iso) { var c = BYISO[iso]; return YEARS.map(function (yr, j) { return [c.name, c.iso3, yr, num(c.v[m.score][j])]; }); }))));
     fig._csvName = m.label + (m.raw ? ' (' + unit + ')' : ' score');
     // chips
     var chips = $('#cmp-chips'); chips.innerHTML = '';
