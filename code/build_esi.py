@@ -100,37 +100,20 @@ def write(df):
     dims = [d.lower() for d in DIMENSIONS]
     r6 = lambda t: t.round(6)
 
-    scores = r6(df[ids + ["esi", "esi_rank"] + [c for d in dims for c in (d, d + "_rank")]])
-    ind_cols = []
-    for key, *_ in INDICATORS:
-        ind_cols += [key] + ([key + "_winsorised"] if key in WINSORISE else []) + [key + "_score", key + "_filled"]
-    indicators = r6(df[ids + ind_cols])
-    sens = r6(df[ids + ["esi", "esi_arithmetic", "esi_mc_mean", "esi_mc_p05", "esi_mc_p95"]])
+    # Public downloads: the ESI and the four dimension scores only
+    scores = r6(df[ids + ["esi"] + dims])
 
-    code = [("country", "Country name", "", "", ""), ("iso3", "ISO 3166-1 alpha-3 code", "", "", ""),
-            ("year", "Calendar year", "", "", ""),
-            ("esi", "Energy Security Index: geometric mean of the four dimensions", "0 to 1", "", "Author's construction"),
-            ("esi_rank", "Rank of the ESI among the 40 countries in that year (1 = most secure)", "rank", "", "")]
+    code = [("country", "Country name", "", ""), ("iso3", "ISO 3166-1 alpha-3 code", "", ""),
+            ("year", "Calendar year", "", ""),
+            ("esi", "Energy Security Index: overall score combining the four dimensions", "0 to 1", "higher is more secure")]
     for d in DIMENSIONS:
-        code.append((d.lower(), f"{d} dimension: mean of its two indicator scores", "0 to 1", "", "Author's construction"))
-        code.append((d.lower() + "_rank", f"Rank of {d} in that year (1 = most secure)", "rank", "", ""))
-    for key, label, dim, sign, unit, srcname in INDICATORS:
-        dirn = "higher is more secure" if sign > 0 else "lower is more secure"
-        code.append((key, f"{label} ({dim}), raw value", unit, dirn, srcname))
-        if key in WINSORISE:
-            code.append((key + "_winsorised", f"{label}, winsorised at the pooled 1st and 99th percentiles (used for the score)", unit, dirn, "Author's construction"))
-        code.append((key + "_score", f"{label}, min-max score (1 = most secure)", "0 to 1", "", "Author's construction"))
-        code.append((key + "_filled", f"{label}: 1 if the raw source had no value and it was interpolated or carried forward", "0/1", "", ""))
-    code += [("esi_arithmetic", "Sensitivity: arithmetic mean of the four dimensions", "0 to 1", "", ""),
-             ("esi_mc_mean", "Sensitivity: mean ESI over 1,000 random dimension weightings", "0 to 1", "", ""),
-             ("esi_mc_p05", "Sensitivity: 5th percentile over the 1,000 weightings", "0 to 1", "", ""),
-             ("esi_mc_p95", "Sensitivity: 95th percentile over the 1,000 weightings", "0 to 1", "", "")]
-    codebook = pd.DataFrame(code, columns=["variable", "description", "unit", "direction", "source"])
+        code.append((d.lower(), f"{d} dimension score", "0 to 1", "higher is more secure"))
+    codebook = pd.DataFrame(code, columns=["variable", "description", "unit", "direction"])
 
     scores.to_csv(dl / "esi_scores.csv", index=False)
-    indicators.to_csv(dl / "esi_indicators.csv", index=False)
-    sens.to_csv(dl / "esi_sensitivity.csv", index=False)
     codebook.to_csv(dl / "esi_codebook.csv", index=False)
+    for old in ("esi_indicators.csv", "esi_sensitivity.csv"):
+        (dl / old).unlink(missing_ok=True)
 
     readme = pd.DataFrame({"Energy Security Index (ESI)": [
         f"Version {VERSION}, released {RELEASED}. 40 countries, 2000-2024.",
@@ -141,25 +124,20 @@ def write(df):
         "",
         "Copyright (c) 2026 Priyanshu Chavda. The ESI data are released under the Creative Commons Attribution 4.0",
         "International licence (CC BY 4.0): you may reuse them with attribution (cite the paper and the dataset).",
-        "Energy CPI inflation is winsorised at the pooled 1st and 99th percentiles before normalisation.",
-        "Raw indicators come from the World Bank, Our World in Data and the U.S. EIA; see the Codebook for each source.",
         "",
-        "Sheets: Scores (ESI, dimensions, ranks), Indicators (raw values, scores, fill flags),",
-        "Sensitivity (alternative aggregations), Codebook.",
+        "Sheets: Scores (the ESI and its four dimensions: Availability, Accessibility, Affordability, Acceptability), Codebook.",
         f"Website and methodology: {SITE}",
     ]})
     with pd.ExcelWriter(dl / f"ESI_dataset_v{VERSION}.xlsx", engine="openpyxl") as xw:
         readme.to_excel(xw, sheet_name="Read me", index=False)
         scores.to_excel(xw, sheet_name="Scores", index=False)
-        indicators.to_excel(xw, sheet_name="Indicators", index=False)
-        sens.to_excel(xw, sheet_name="Sensitivity", index=False)
         codebook.to_excel(xw, sheet_name="Codebook", index=False)
         for ws in xw.book.worksheets:
             ws.freeze_panes = "A2"
             for col in ws.columns:
                 ws.column_dimensions[col[0].column_letter].width = 14 if ws.title != "Read me" else 110
         cb = xw.book["Codebook"]
-        for letter, w in zip("ABCDE", (24, 80, 22, 22, 62)):
+        for letter, w in zip("ABCD", (16, 70, 12, 24)):
             cb.column_dimensions[letter].width = w
 
     # Compact JSON for the dashboard

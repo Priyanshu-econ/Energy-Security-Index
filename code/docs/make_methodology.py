@@ -11,7 +11,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[2]
 D = json.loads((ROOT / "data" / "esi.json").read_text())
 M = D["meta"]; S = M["sensitivity"]
-ind = pd.read_csv(ROOT / "downloads" / "esi_indicators.csv")
+ind = pd.read_csv(ROOT / "code" / "esi_inputs.csv")
 sc = pd.read_csv(ROOT / "downloads" / "esi_scores.csv")
 e = html.escape
 
@@ -20,11 +20,12 @@ raw_cpi = ind.energy_cpi_inflation
 cpi_lo, cpi_hi = raw_cpi.quantile(0.01), raw_cpi.quantile(0.99)
 cpi_n = int(((raw_cpi < cpi_lo) | (raw_cpi > cpi_hi)).sum())
 cpi_share_raw = (((raw_cpi.max() - raw_cpi) / (raw_cpi.max() - raw_cpi.min())) > 0.99).mean() * 100
-cpi_share = (ind.energy_cpi_inflation_score > 0.99).mean() * 100
+w_cpi = raw_cpi.clip(cpi_lo, cpi_hi)
+cpi_share = (((w_cpi.max() - w_cpi) / (w_cpi.max() - w_cpi.min())) > 0.99).mean() * 100
 cpi_max = ind.loc[ind.energy_cpi_inflation.idxmax()]
 dimstats = sc[["availability", "accessibility", "affordability", "acceptability", "esi"]].describe().T
 countries = sorted(sc.country.unique())
-last = sc[sc.year == sc.year.max()].sort_values("esi_rank")
+last = sc[sc.year == sc.year.max()].sort_values("esi", ascending=False).assign(esi_rank=lambda t: range(1, len(t) + 1))
 
 rows_ind = "".join(
     f"<tr><td>{e(i['dim']) if k % 2 == 0 else ''}</td><td>{e(i['label'])}</td><td>{e(i['unit'])}</td>"
@@ -92,7 +93,7 @@ ul {{ margin: 0 0 8pt; padding-left: 16pt; }} li {{ margin-bottom: 3pt; }}
 <p>Energy self-sufficiency is total primary energy production divided by total primary energy consumption, both in quadrillion Btu from the EIA. Energy CPI inflation is the annual percentage change of the energy component of the consumer price index. GDP per capita growth enters Affordability as a proxy for households' ability to pay for energy.</p>
 
 <h3>Missing values</h3>
-<p>All raw values were taken from the source files and matched to countries by ISO 3166 code. Where a source had no value for a country-year (in total {S['filled_share']}% of indicator values), the gap was filled by linear interpolation between observed years, or, at the start or end of a series, by carrying the nearest observed value forward or back. Every filled value is flagged in the data (variables ending in <i>_filled</i>), so users can drop or re-impute them.</p>
+<p>All raw values were taken from the source files and matched to countries by ISO 3166 code. Where a source had no value for a country-year (in total {S['filled_share']}% of indicator values), the gap was filled by linear interpolation between observed years, or, at the start or end of a series, by carrying the nearest observed value forward or back.</p>
 
 <h2>5. Normalisation: pooled min–max</h2>
 <p>The eight indicators are measured in different units, so each is rescaled to a common 0–1 scale with the min–max method. Indicators where a higher value means more security use Eq. (1); indicators where a lower value means more security use Eq. (2), so that 1 is always the most secure value:</p>
@@ -124,8 +125,8 @@ ul {{ margin: 0 0 8pt; padding-left: 16pt; }} li {{ margin-bottom: 3pt; }}
 
 <h2>10. Files, code and licence</h2>
 <ul class="small">
-<li><b>ESI_dataset_v{e(M['version'])}.xlsx</b>: read me, scores, indicators, sensitivity and codebook in one workbook.</li>
-<li><b>esi_scores.csv</b>: ESI, four dimensions and yearly ranks. <b>esi_indicators.csv</b>: raw values, 0–1 scores and fill flags for the eight indicators. <b>esi_sensitivity.csv</b>: arithmetic aggregation and the random-weights mean, 5th and 95th percentiles. <b>esi_codebook.csv</b>: definition, unit, direction and source of every variable.</li>
+<li><b>ESI_dataset_v{e(M['version'])}.xlsx</b>: read me, scores (the ESI and its four dimensions) and codebook in one workbook.</li>
+<li><b>esi_scores.csv</b>: the ESI and the four dimension scores for every country and year. <b>esi_codebook.csv</b>: definition, unit and direction of each variable.</li>
 <li><b>Code</b>: <i>code/build_esi.py</i> in the GitHub repository Priyanshu-econ/Energy-Security-Index rebuilds the index and every file from the raw indicators in <i>esi_inputs.csv</i>.</li>
 <li><b>Copyright and licence</b>: © 2026 Priyanshu Chavda. The website, text, figures, this document and the paper are the author's copyright, all rights reserved. The index and processed data are released under CC BY 4.0, so they may be reused with attribution. The raw indicators remain under their sources' terms: World Bank WDI and Global Database of Inflation (CC BY 4.0), Our World in Data (CC BY 4.0), U.S. EIA (public domain). Please credit those sources when you use the raw values.</li>
 <li><b>Versions</b>: {e(M['version'])} ({e(M['released'])}), first public release. Any later revision will keep earlier versions available, so results can be reproduced with the version cited.</li>

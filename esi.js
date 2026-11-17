@@ -169,7 +169,7 @@
       }
     });
     legend(fig, cl.labels().map(function (x) { return { type: 'sw', color: x.color, label: x.label }; }).concat([{ type: 'hatch', label: 'Not in sample' }]));
-    fig._csv = crossSection(m, i);
+    setCsv(fig, m.raw ? null : crossSection(m, i));
   }
 
   // ---------- 2. Ranking ----------
@@ -200,7 +200,7 @@
       g.addEventListener('keydown', function (e) { if (e.key === 'Enter') setCountry(r.c.iso3, true); });
     });
     fig._legend = [];
-    fig._csv = crossSection(m, i);
+    setCsv(fig, m.raw ? null : crossSection(m, i));
     // table view
     var t = h('table', 'tbl'), th = t.createTHead().insertRow();
     ['Rank', 'Country', 'Score'].concat(m.raw ? [m.ind.unit] : []).forEach(function (s) { th.appendChild(h('th', null, s)); });
@@ -234,7 +234,7 @@
     [2000, 2006, 2012, 2018, 2024].forEach(function (yr) { txt(svg, left + (yi(yr) + .5) * cw, H - 5, String(yr), { anchor: 'middle', size: 10 }); });
     el('rect', { x: left + i * cw, y: top - 1, width: cw, height: rows.length * ch + 2, fill: 'none', stroke: css('--viz-ink'), 'stroke-width': 1 }, svg);
     legend(fig, cl.labels().map(function (x) { return { type: 'sw', color: x.color, label: x.label }; }));
-    fig._csv = [['country', 'iso3'].concat(YEARS.map(String))].concat(rows.map(function (c) { return [c.name, c.iso3].concat(c.v[m.score].map(function (v) { return num(v); })); }));
+    setCsv(fig, m.raw ? null : [['country', 'iso3'].concat(YEARS.map(String))].concat(rows.map(function (c) { return [c.name, c.iso3].concat(c.v[m.score].map(function (v) { return num(v); })); })));
     fig._csvName = m.label + ' score, all years';
   }
 
@@ -320,7 +320,7 @@
       band: [c.v.esi_mc_p05, c.v.esi_mc_p95, s1], ref: { name: 'Sample median', values: medianSeries('esi') }, fmtV: function (v) { return fmt(v, 3); }, tipTitle: c.name });
     legend(f1, [{ type: 'line', color: s1, label: c.name }, { type: 'band', color: s1, label: 'Range over random weights' }, { type: 'line', color: css('--viz-muted'), label: 'Sample median' }]);
     var medE = medianSeries('esi');
-    f1._csv = [['country', 'year', 'esi', 'esi_rank', 'esi_random_weights_p05', 'esi_random_weights_p95', 'sample_median_esi']].concat(YEARS.map(function (yr, j) { return [c.name, yr, num(c.v.esi[j]), c.v.esi_rank[j], num(c.v.esi_mc_p05[j]), num(c.v.esi_mc_p95[j]), num(medE[j])]; }));
+    setCsv(f1, [['country', 'year', 'esi', 'sample_median_esi']].concat(YEARS.map(function (yr, j) { return [c.name, yr, num(c.v.esi[j]), num(medE[j])]; })));
 
     // dimensions
     var f2 = $('[data-fig="dims"]'), cols = ['--s1', '--s2', '--s3', '--s4'].map(css);
@@ -329,7 +329,7 @@
     var ser = META.dimensions.map(function (d, k) { return { name: d, color: cols[k], values: c.v[d.toLowerCase()] }; });
     lineChart(svg, { x: 34, y: 10, w: W - 48 - 86, h: H - 40 }, { series: ser, domain: [0, 1], ticks: [0, .25, .5, .75, 1], endLabels: true, fmtV: function (v) { return fmt(v, 3); }, tipTitle: c.name });
     legend(f2, ser.map(function (s) { return { type: 'line', color: s.color, label: s.name }; }));
-    f2._csv = [['country', 'year'].concat(META.dimensions.map(function (d) { return d.toLowerCase(); }))].concat(YEARS.map(function (yr, j) { return [c.name, yr].concat(META.dimensions.map(function (d) { return num(c.v[d.toLowerCase()][j]); })); }));
+    setCsv(f2, [['country', 'year'].concat(META.dimensions.map(function (d) { return d.toLowerCase(); }))].concat(YEARS.map(function (yr, j) { return [c.name, yr].concat(META.dimensions.map(function (d) { return num(c.v[d.toLowerCase()][j]); })); })));
 
     // indicators small multiples
     var f3 = $('[data-fig="inds"]');
@@ -352,9 +352,7 @@
         domain: [lo, hi], ticks: niceTicks(lo, hi, 3), ref: { name: 'Sample median', values: med }, compact: true, tipTitle: ind.label });
     });
     legend(f3, [{ type: 'line', color: s1, label: c.name }, { type: 'line', color: css('--viz-muted'), label: 'Sample median' }]);
-    var ih = ['country', 'year'], meds = {};
-    META.indicators.forEach(function (ind) { ih.push(ind.key, ind.key + '_score', ind.key + '_sample_median'); meds[ind.key] = medianSeries(ind.key); });
-    f3._csv = [ih].concat(YEARS.map(function (yr, j) { var r = [c.name, yr]; META.indicators.forEach(function (ind) { r.push(num(c.v[ind.key][j]), num(c.v[ind.key + '_score'][j]), num(meds[ind.key][j])); }); return r; }));
+    setCsv(f3, null); // indicator graphs: image download only
 
     // table
     var tb = h('table', 'tbl'), hr = tb.createTHead().insertRow();
@@ -384,7 +382,7 @@
     lineChart(svg, { x: 46, y: 10, w: W - 60 - lw, h: H - 40 }, { series: ser, domain: [lo, hi], ticks: tk, endLabels: true, ref: { name: 'Sample median', values: med },
       fmtV: m.raw ? rawFmt : function (v) { return fmt(v, 3); }, tipTitle: m.label });
     legend(fig, ser.map(function (s) { return { type: 'line', color: s.color, label: s.name }; }).concat([{ type: 'line', color: css('--viz-muted'), label: 'Sample median' }]));
-    fig._csv = [['year'].concat(ser.map(function (s) { return s.name; }), ['sample_median'])].concat(YEARS.map(function (yr, j) { return [yr].concat(ser.map(function (s) { return num(s.values[j]); }), [num(med[j])]); }));
+    setCsv(fig, m.raw ? null : [['year'].concat(ser.map(function (s) { return s.name; }), ['sample_median'])].concat(YEARS.map(function (yr, j) { return [yr].concat(ser.map(function (s) { return num(s.values[j]); }), [num(med[j])]); })));
     fig._csvName = m.label + (m.raw ? ' (' + unit + ')' : ' score');
     // chips
     var chips = $('#cmp-chips'); chips.innerHTML = '';
@@ -399,11 +397,15 @@
   // ---------- data behind a figure, as CSV ----------
   function num(v) { return v == null || isNaN(v) ? '' : +Number(v).toFixed(6); }
   function crossSection(m, i) {
-    var head = ['country', 'iso3', 'year', m.key === 'esi' ? 'esi' : (m.raw ? m.key + '_score' : m.key), 'rank_of_' + D.countries.length];
-    if (m.raw) head.push(m.key + ' (' + m.ind.unit + ')');
-    var rows = shown().map(function (c) { var r = [c.name, c.iso3, YEARS[i], num(c.v[m.score][i]), rankOf(c, m, i)]; if (m.raw) r.push(num(c.v[m.raw][i])); return r; });
-    rows.sort(function (a, b) { return a[4] - b[4]; });
+    var head = ['country', 'iso3', 'year', m.key];
+    var rows = shown().map(function (c) { return [c.name, c.iso3, YEARS[i], num(c.v[m.score][i])]; });
+    rows.sort(function (a, b) { return (b[3] === '' ? -1 : b[3]) - (a[3] === '' ? -1 : a[3]); });
     return [head].concat(rows);
+  }
+  // CSV only for the ESI and the four dimensions; indicator graphs offer image download only
+  function setCsv(fig, data) {
+    fig._csv = data;
+    var b = fig.querySelector('[data-export="csv"]'); if (b) b.style.display = data ? '' : 'none';
   }
   function exportCsv(fig) {
     if (!fig._csv) return;
